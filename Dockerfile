@@ -136,12 +136,6 @@ RUN python3 /workspace/onnxruntime/tools/ci_build/build.py --build_dir /workspac
 RUN echo "import onnx; print(onnx.__version__)" | python3 > /workspace/ort_onnx_version.txt
 
 ############################################################################
-## TensorFlow stage: Use TensorFlow container
-############################################################################
-FROM ${TENSORFLOW1_IMAGE} AS tritonserver_tf1
-FROM ${TENSORFLOW2_IMAGE} AS tritonserver_tf2
-
-############################################################################
 ## Build stage: Build inference server
 ############################################################################
 FROM ${BASE_IMAGE} AS tritonserver_build
@@ -195,33 +189,6 @@ RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/nul
     apt-add-repository 'deb https://apt.kitware.com/ubuntu/ bionic main' && \
     apt-get update && \
     apt-get install -y --no-install-recommends cmake
-
-# TensorFlow libraries. Install the monolithic libtensorflow_trtis and
-# create links from libtensorflow_framework.so and
-# libtensorflow_cc.so.  Custom TF operations link against
-# libtensorflow_framework.so so it must be present (and that
-# functionality is provided by libtensorflow_trtis.so).
-COPY --from=tritonserver_tf1 \
-     /usr/local/lib/tensorflow/libtensorflow_trtis.so.1 \
-     /opt/tritonserver/backends/tensorflow1/
-RUN cd /opt/tritonserver/backends/tensorflow1 && \
-    patchelf --set-rpath '$ORIGIN' libtensorflow_trtis.so.1 && \
-    ln -sf libtensorflow_trtis.so.1 libtensorflow_trtis.so && \
-    ln -sf libtensorflow_trtis.so.1 libtensorflow_framework.so.1 && \
-    ln -sf libtensorflow_framework.so.1 libtensorflow_framework.so && \
-    ln -sf libtensorflow_trtis.so.1 libtensorflow_cc.so.1 && \
-    ln -sf libtensorflow_cc.so.1 libtensorflow_cc.so
-
-COPY --from=tritonserver_tf2 \
-     /usr/local/lib/tensorflow/libtensorflow_triton.so.2 \
-     /opt/tritonserver/backends/tensorflow2/
-RUN cd /opt/tritonserver/backends/tensorflow2 && \
-    patchelf --set-rpath '$ORIGIN' libtensorflow_triton.so.2 && \
-    ln -sf libtensorflow_triton.so.2 libtensorflow_triton.so && \
-    ln -sf libtensorflow_triton.so.2 libtensorflow_framework.so.2 && \
-    ln -sf libtensorflow_framework.so.2 libtensorflow_framework.so && \
-    ln -sf libtensorflow_triton.so.2 libtensorflow_cc.so.2 && \
-    ln -sf libtensorflow_cc.so.2 libtensorflow_cc.so
 
 # Caffe2 libraries
 COPY --from=tritonserver_pytorch \
@@ -359,7 +326,7 @@ RUN LIBCUDA_FOUND=$(ldconfig -p | grep -v compat | awk '{print $1}' | grep libcu
                   -DTRITON_ENABLE_ENSEMBLE=ON \
                   -DTRITON_ONNXRUNTIME_INCLUDE_PATHS="/opt/tritonserver/include/onnxruntime" \
                   -DTRITON_PYTORCH_INCLUDE_PATHS="/opt/tritonserver/include/torch;/opt/tritonserver/include/torch/torch/csrc/api/include;/opt/tritonserver/include/torchvision;/usr/include/python3.6" \
-                  -DTRITON_EXTRA_LIB_PATHS="/opt/tritonserver/lib;/opt/tritonserver/backends/tensorflow1;/opt/tritonserver/backends/tensorflow2;/opt/tritonserver/lib/pytorch" \
+                  -DTRITON_EXTRA_LIB_PATHS="/opt/tritonserver/lib;/opt/tritonserver/lib/pytorch" \
                   ../build && \
             make -j16 server && \
             mkdir -p /opt/tritonserver/include && \
@@ -420,8 +387,8 @@ RUN rm -fr /tmp/triton_backends && mkdir -p /tmp/triton_backends && \
                -DTRITON_COMMON_REPO_TAG:STRING=${TRITON_COMMON_REPO_TAG} \
                -DTRITON_CORE_REPO_TAG:STRING=${TRITON_CORE_REPO_TAG} \
                -DTRITON_BACKEND_REPO_TAG:STRING=${TRITON_BACKEND_REPO_TAG} \
-               -DTRITON_TENSORFLOW_VERSION="1" .. \
-               -DTRITON_TENSORFLOW_LIB_PATHS="/opt/tritonserver/backends/tensorflow1" .. && \
+               -DTRITON_TENSORFLOW_VERSION="1" \
+               -DTRITON_TENSORFLOW_DOCKER_IMAGE=${TENSORFLOW1_IMAGE} .. && \
          make -j16 install && \
          mkdir -p /opt/tritonserver/backends && \
          cp -r install/backends/tensorflow1 /opt/tritonserver/backends/.)
@@ -438,8 +405,8 @@ RUN rm -fr /tmp/triton_backends && mkdir -p /tmp/triton_backends && \
                -DTRITON_COMMON_REPO_TAG:STRING=${TRITON_COMMON_REPO_TAG} \
                -DTRITON_CORE_REPO_TAG:STRING=${TRITON_CORE_REPO_TAG} \
                -DTRITON_BACKEND_REPO_TAG:STRING=${TRITON_BACKEND_REPO_TAG} \
-               -DTRITON_TENSORFLOW_VERSION="2" .. \
-               -DTRITON_TENSORFLOW_LIB_PATHS="/opt/tritonserver/backends/tensorflow2" .. && \
+               -DTRITON_TENSORFLOW_VERSION="2" \
+               -DTRITON_TENSORFLOW_DOCKER_IMAGE=${TENSORFLOW2_IMAGE} .. && \
          make -j16 install && \
          mkdir -p /opt/tritonserver/backends && \
          cp -r install/backends/tensorflow2 /opt/tritonserver/backends/.)
@@ -536,8 +503,6 @@ RUN rm -fr /opt/tritonserver/*
 COPY --chown=1000:1000 LICENSE .
 COPY --chown=1000:1000 --from=tritonserver_onnx /data/dldt/openvino_${OPENVINO_VERSION}/LICENSE LICENSE.openvino
 COPY --chown=1000:1000 --from=tritonserver_onnx /workspace/onnxruntime/LICENSE LICENSE.onnxruntime
-# TF1 and TF2 use the same license
-COPY --chown=1000:1000 --from=tritonserver_tf1 /opt/tensorflow/tensorflow-source/LICENSE LICENSE.tensorflow
 COPY --chown=1000:1000 --from=tritonserver_pytorch /opt/pytorch/pytorch/LICENSE LICENSE.pytorch
 COPY --chown=1000:1000 --from=tritonserver_build /opt/tritonserver/bin/tritonserver bin/
 COPY --chown=1000:1000 --from=tritonserver_build /opt/tritonserver/lib lib
