@@ -337,95 +337,17 @@ RUN LIBCUDA_FOUND=$(ldconfig -p | grep -v compat | awk '{print $1}' | grep libcu
 
 # Build the backends.
 #
-ARG TRITON_EXAMPLE_BACKEND_TAG=main
-RUN for BE in identity repeat square; do \
-        rm -fr /tmp/triton_backends && mkdir -p /tmp/triton_backends && \
-            (cd /tmp/triton_backends && \
-                 git clone --single-branch --depth=1 -b ${TRITON_EXAMPLE_BACKEND_TAG} \
-                     https://github.com/triton-inference-server/${BE}_backend.git) && \
-            (cd /tmp/triton_backends/${BE}_backend && \
-                 mkdir build && cd build && \
-                 cmake -DCMAKE_BUILD_TYPE=Release \
-                       -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/install \
-                       -DTRITON_COMMON_REPO_TAG:STRING=${TRITON_COMMON_REPO_TAG} \
-                       -DTRITON_CORE_REPO_TAG:STRING=${TRITON_CORE_REPO_TAG} \
-                       -DTRITON_BACKEND_REPO_TAG:STRING=${TRITON_BACKEND_REPO_TAG} .. && \
-                 make -j16 install && \
-                 mkdir -p /opt/tritonserver/backends && \
-                 cp -r install/backends/${BE} /opt/tritonserver/backends/.); \
-    done
-
-ARG TRITON_ONNXRUNTIME_BACKEND_TAG=main
-RUN rm -fr /tmp/triton_backends && mkdir -p /tmp/triton_backends && \
-    (cd /tmp/triton_backends && \
-         git clone --single-branch --depth=1 -b ${TRITON_ONNXRUNTIME_BACKEND_TAG} \
-             https://github.com/triton-inference-server/onnxruntime_backend.git) && \
-    (cd /tmp/triton_backends/onnxruntime_backend && \
-         mkdir build && cd build && \
-         cmake -DCMAKE_BUILD_TYPE=Release \
-               -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/install \
-               -DTRITON_COMMON_REPO_TAG:STRING=${TRITON_COMMON_REPO_TAG} \
-               -DTRITON_CORE_REPO_TAG:STRING=${TRITON_CORE_REPO_TAG} \
-               -DTRITON_BACKEND_REPO_TAG:STRING=${TRITON_BACKEND_REPO_TAG} \
-               -DTRITON_ENABLE_ONNXRUNTIME_TENSORRT=ON \
-               -DTRITON_ENABLE_ONNXRUNTIME_OPENVINO=ON \
-               -DTRITON_ONNXRUNTIME_INCLUDE_PATHS="/opt/tritonserver/include/onnxruntime" \
-               -DTRITON_ONNXRUNTIME_LIB_PATHS="/opt/tritonserver/backends/onnxruntime" .. && \
-         make -j16 install && \
-         mkdir -p /opt/tritonserver/backends && \
-         cp -r install/backends/onnxruntime /opt/tritonserver/backends/.)
-
-ARG TRITON_TENSORFLOW1_BACKEND_TAG=main
-RUN rm -fr /tmp/triton_backends && mkdir -p /tmp/triton_backends && \
-    (cd /tmp/triton_backends && \
-         git clone --single-branch --depth=1 -b ${TRITON_TENSORFLOW1_BACKEND_TAG} \
-             https://github.com/triton-inference-server/tensorflow_backend.git) && \
-    (cd /tmp/triton_backends/tensorflow_backend && \
-         mkdir build && cd build && \
-         cmake -DCMAKE_BUILD_TYPE=Release \
-               -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/install \
-               -DTRITON_COMMON_REPO_TAG:STRING=${TRITON_COMMON_REPO_TAG} \
-               -DTRITON_CORE_REPO_TAG:STRING=${TRITON_CORE_REPO_TAG} \
-               -DTRITON_BACKEND_REPO_TAG:STRING=${TRITON_BACKEND_REPO_TAG} \
-               -DTRITON_TENSORFLOW_VERSION="1" \
-               -DTRITON_TENSORFLOW_DOCKER_IMAGE=${TENSORFLOW1_IMAGE} .. && \
-         make -j16 install && \
-         mkdir -p /opt/tritonserver/backends && \
-         cp -r install/backends/tensorflow1 /opt/tritonserver/backends/.)
-
-ARG TRITON_TENSORFLOW2_BACKEND_TAG=main
-RUN rm -fr /tmp/triton_backends && mkdir -p /tmp/triton_backends && \
-    (cd /tmp/triton_backends && \
-         git clone --single-branch --depth=1 -b ${TRITON_TENSORFLOW2_BACKEND_TAG} \
-             https://github.com/triton-inference-server/tensorflow_backend.git) && \
-    (cd /tmp/triton_backends/tensorflow_backend && \
-         mkdir build && cd build && \
-         cmake -DCMAKE_BUILD_TYPE=Release \
-               -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/install \
-               -DTRITON_COMMON_REPO_TAG:STRING=${TRITON_COMMON_REPO_TAG} \
-               -DTRITON_CORE_REPO_TAG:STRING=${TRITON_CORE_REPO_TAG} \
-               -DTRITON_BACKEND_REPO_TAG:STRING=${TRITON_BACKEND_REPO_TAG} \
-               -DTRITON_TENSORFLOW_VERSION="2" \
-               -DTRITON_TENSORFLOW_DOCKER_IMAGE=${TENSORFLOW2_IMAGE} .. && \
-         make -j16 install && \
-         mkdir -p /opt/tritonserver/backends && \
-         cp -r install/backends/tensorflow2 /opt/tritonserver/backends/.)
-
-ARG TRITON_PYTHON_BACKEND_TAG=main
-RUN rm -fr /tmp/triton_backends && mkdir -p /tmp/triton_backends && \
-    (cd /tmp/triton_backends && \
-         git clone --single-branch --depth=1 -b ${TRITON_PYTHON_BACKEND_TAG} \
-             https://github.com/triton-inference-server/python_backend.git) && \
-    (cd /tmp/triton_backends/python_backend && \
-         mkdir build && cd build && \
-         cmake -DCMAKE_BUILD_TYPE=Release \
-               -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/install \
-               -DTRITON_COMMON_REPO_TAG:STRING=${TRITON_COMMON_REPO_TAG} \
-               -DTRITON_CORE_REPO_TAG:STRING=${TRITON_CORE_REPO_TAG} \
-               -DTRITON_BACKEND_REPO_TAG:STRING=${TRITON_BACKEND_REPO_TAG} .. && \
-         make -j16 install && \
-         mkdir -p /opt/tritonserver/backends && \
-         cp -r install/backends/python /opt/tritonserver/backends/.)
+RUN ./build.py -v \
+    --version=${TRITON_VERSION} --container-version=${TRITON_CONTAINER_VERSION} \
+    --build-dir=/workspace/backendbuild \
+    --install-dir=/opt/tritonserver \
+    --backend=identity:main \
+    --backend=repeat:main \
+    --backend=square:main \
+    --backend=onnxruntime:main \
+    --backend=tensorflow1:davidg-build \
+    --backend=tensorflow2:davidg-build \
+    --backend=python:main
 
 ENV TRITON_SERVER_VERSION ${TRITON_VERSION}
 ENV NVIDIA_TRITON_SERVER_VERSION ${TRITON_CONTAINER_VERSION}
