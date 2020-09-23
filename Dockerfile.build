@@ -150,6 +150,7 @@ RUN apt-get update && \
             autoconf \
             automake \
             build-essential \
+            docker.io \
             git \
             libgoogle-glog0v5 \
             libre2-dev \
