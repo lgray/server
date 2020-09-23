@@ -70,6 +70,7 @@ def rmdir(path):
     shutil.rmtree(path, ignore_errors=True)
 
 def cpdir(src, dest):
+    log_verbose('cpdir: {} -> {}'.format(src, dest))
     copy_tree(src, dest, preserve_symlinks=1)
 
 def gitclone(cwd, repo, tag):
