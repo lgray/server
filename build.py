@@ -29,6 +29,7 @@ import argparse
 import os.path
 import multiprocessing
 import pathlib
+import shutil
 import subprocess
 import sys
 from distutils.dir_util import copy_tree
@@ -63,6 +64,13 @@ def mkdir(path):
     log_verbose('mkdir: {}'.format(path))
     pathlib.Path(path).mkdir(parents=True, exist_ok=True)
 
+
+def rmdir(path):
+    log_verbose('rmdir: {}'.format(path))
+    shutil.rmtree(path, ignore_errors=True)
+
+def cpdir(src, dest):
+    copy_tree(src, dest, preserve_symlinks=1)
 
 def gitclone(cwd, repo, tag):
     log_verbose('git clone of repo "{}" at tag "{}"'.format(repo, tag))
@@ -269,7 +277,7 @@ if __name__ == '__main__':
         makeinstall(repo_build_dir)
 
         backend_install_dir = os.path.join(FLAGS.install_dir, 'backends', be)
+        rmdir(backend_install_dir)
         mkdir(backend_install_dir)
-        copy_tree(os.path.join(repo_install_dir, 'backends', be),
-                  backend_install_dir,
-                  preserve_symlinks=1)
+        cpdir(os.path.join(repo_install_dir, 'backends', be),
+                  backend_install_dir)
